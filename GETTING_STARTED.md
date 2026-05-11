@@ -249,18 +249,21 @@ The agent loop, in plain English:
 |---|---|---|
 | "OpenRouter API key is not configured" | `.env.local` missing or wrong key | Re-check Step 3. Restart `npm run dev` after editing the file. |
 | Browser says "Cannot reach localhost" | `npm run dev` isn't running | Open a terminal in `research-agent/` and run it. |
-| Workflow stuck on "Researching…" | Network timeout, model error, or out of OpenRouter credit | Check the terminal where `npm run dev` is running for errors. Check your OpenRouter balance. |
+| Server log shows `[PMC full text] HTTP 429, retrying after 2000ms` | NCBI is rate-limiting us; happens during rapid back-to-back runs | **Not an error.** The app retries automatically with a 2s backoff and the run keeps going. Keep watching. |
+| Workflow stuck for 90+ seconds with no log activity | Out of OpenRouter credit, OpenRouter outage, or the model is mid-synthesis writing a long artifact | Check the terminal — if you see `[step]` lines appearing every 30-60s, the agent is working. If totally silent, check your OpenRouter balance and the [OpenRouter status page](https://status.openrouter.ai/). |
+| "Incomplete run · N/6 artifacts" banner | Genuine non-transient failure (after the automatic retry already used its one chance) | Look at the server log for a `stream-error` line with a non-empty `cause=...` chain — that's the real underlying error. Retry the same question; the failure mode rarely repeats. |
 | PHI rejected error on a clearly clean question | Over-eager regex (e.g., long DOIs can look like phone numbers) | Edit the question slightly. If it's a bug, ask an agent to fix the regex in `src/app/api/research/route.ts`. |
 | "Cannot find module 'next'" after `npm install` | Wrong Node version | Run `node --version` — must be 20 or higher. |
-| Costs higher than expected | Sonnet 4.5 is the default; some questions burn more tokens | Switch to `anthropic/claude-haiku-4.5` in `.env.local` for rehearsals (~3× cheaper). |
+| Costs higher than expected | Sonnet 4.5 runs ~$1.60/each; agentic loops replay a lot of context | Switch to `anthropic/claude-haiku-4.5` in `.env.local` for rehearsals (~$0.55, ~3× cheaper). |
 
 ---
 
 ## Where to go next
 
-- **`research-agent/README.md`** — deeper technical setup, model cost tables, Vercel deployment notes.
+- **`research-agent/README.md`** — deeper technical setup, measured cost tables, reliability notes.
 - **`research-agent/docs/instructor-runbook.md`** — what to do the morning of a live classroom demo.
 - **The output files at the repo root** — read `narrative_synthesis.md` to see what a finished review looks like.
+- **The `demo-ready` git tag** — known-good snapshot to roll back to: `git checkout demo-ready` (look around) or `git reset --hard demo-ready` (commit).
 - **OpenRouter docs** — <https://openrouter.ai/docs>
 - **Vercel AI SDK docs** — <https://sdk.vercel.ai/> (the toolkit this app is built on)
 - **Anthropic Claude Code docs** — <https://docs.anthropic.com/en/docs/claude-code>

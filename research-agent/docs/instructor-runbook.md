@@ -47,12 +47,12 @@ For this 1-hour classroom session, the agent runs on the instructor's laptop, no
 
 ### Night before class
 
-1. Pull the latest `main` branch: `git pull origin main`. Confirm the most recent commit message references the 1/6 artifacts fix.
+1. Pull the latest `main` branch: `git pull origin main`. Or, for the strongest guarantee, check out the verified snapshot: `git checkout demo-ready` (the tag points at the last commit verified end-to-end).
 2. Reinstall dependencies cleanly: `cd research-agent && npm ci`.
 3. Confirm `research-agent/.env.local` contains a working `OPENROUTER_API_KEY`. (Optional: also set `OPENALEX_MAILTO` to your school email for the OpenAlex polite pool.)
 4. Run `npm run build` once. It must end with "Generating static pages (5/5)" and no type errors.
-5. Run the canonical question once via the browser at `http://localhost:3000` to confirm 6/6 artifacts. This is also the final pre-flight (~$1.59 in OpenRouter credits).
-6. Download all six artifacts from that pre-flight run and save them locally as a backup artifact set, per the Backup Plan section below.
+5. Run the canonical question once via the browser at `http://localhost:3000` to confirm 6/6 artifacts. This is the final pre-flight (~$1.60 in OpenRouter credits for Sonnet 4.5).
+6. Download all six artifacts from that pre-flight run and save them at `~/Desktop/demo-backup-artifacts/` as a backup artifact set. A previous verified set is already there from the 2026-05-11 validation runs if you want a head-start.
 
 ### 15 minutes before class
 
@@ -93,10 +93,11 @@ Notes on this path:
 
 | Symptom | Most likely cause | Quick fix |
 |---|---|---|
+| `[PMC full text] HTTP 429, retrying after 2000ms` in the server log | NCBI is rate-limiting us — common during back-to-back runs | **Not an error.** The retry-with-backoff layer recovers it automatically; the run keeps going. Don't mention this to the class unless they're watching the log over your shoulder. |
 | "Network error" banner appears in seconds | Dev server crashed or was hot-reloaded mid-request | Check the server terminal. Restart with `npm run dev` if needed, hard-refresh browser. |
-| "Incomplete run · N/6 artifacts" | Outbound API hiccup mid-run (PubMed, OpenAlex, or OpenRouter rate-limit) | Wait 15 seconds, retry the same query. If reproducible across two retries, fall back to the downloaded backup artifact set. |
+| "Incomplete run · N/6 artifacts" | A non-transient failure after the automatic retry already used its one chance — usually a malformed tool call, model truncation, or sustained OpenRouter/NCBI outage | Look at the server log for a `stream-error: name=... message=... cause={...}` line — that has the underlying error. Retry once; if reproducible, fall back to the backup artifact set at `~/Desktop/demo-backup-artifacts/`. |
 | Browser shows the page but submit button does nothing | Server not running on :3000, or browser is on a stale URL | Confirm `npm run dev` is still up in the terminal. Refresh browser. |
-| Stepper looks frozen for >90 seconds with no new event | Model is mid-synthesis (especially article_summaries or narrative_synthesis steps); these are the heaviest writes | Be patient — these steps often write 3000-5000 tokens. The terminal's `[step]` line will confirm activity. |
+| Stepper looks frozen for >90 seconds with no new event | Model is mid-synthesis (especially article_summaries or narrative_synthesis steps); these are the heaviest writes | Be patient — these steps often write 3000-5000 tokens. The terminal's `[step]` lines will confirm activity. |
 | Browser says "Took too long to respond" or similar | Laptop went to sleep, lost network, or `caffeinate -d` was not started | Wake laptop, confirm wifi, restart dev server, fall back to backup artifacts. |
 
 ### After class
@@ -211,17 +212,33 @@ If the student cancels mid-run:
 
 ## Validation Status (last verified 2026-05-11)
 
-The "Incomplete run · 1/6 artifacts" failure observed in early prep was diagnosed and fixed on 2026-05-11. Root cause was a 500-character Zod cap on the PubMed and OpenAlex query parameters — biomedical queries with MeSH terms and Boolean operators routinely exceed 500 chars, and the AI SDK was silently rejecting the over-long tool argument without telling the model. Cap raised to 2000 chars. Three consecutive end-to-end validation runs of the canonical question each produced 6/6 artifacts:
+Four classes of bug were diagnosed and fixed during pre-class preparation on 2026-05-11. Each is documented below in the order it was caught:
+
+| Bug | Root cause | Fix |
+|---|---|---|
+| Incomplete run · 1/6 artifacts (first occurrence) | 500-char Zod cap on `pubmedSearch`/`openAlexSearch` query parameters; AI SDK silently rejected over-long tool arguments | Cap raised to 2000 chars |
+| Incomplete run on second canonical question | 5-element Zod cap on `pubmedFulltext.pmcIds`; model wanted 10 PMC IDs for a thorough review | Cap raised to 25 |
+| Sudden hard failure under back-to-back-run load | NCBI PMC efetch returning HTTP 429; no retry layer, 12s timeout was tight | Added one-retry-with-2s-backoff to `pubmed.ts` and `openalex.ts`; timeout raised 12s → 20s |
+| Stream-error log was `cause: {}` (useless) | `JSON.stringify` on `Error`/`DOMException` returns `{}` because the relevant properties are non-enumerable | Hand-written `serializeStreamError()` walks the chain and emits `name=... message=... cause={...}` |
+
+Three consecutive end-to-end validation runs of the canonical GLP-1 question each produced 6/6 artifacts after the fixes landed:
 
 | Run | Artifacts | Duration | Terminal event |
 |---|---|---|---|
 | 1 | 6/6 | 5:15 | done |
 | 2 | 6/6 | 5:44 | done |
-| 3 | 6/6 | 5:18 | done |
+| 3 | 6/6 | 5:57 | done |
 
-Plan for ~5:30 average wall time per run. Full diagnosis: `docs/brainstorms/2026-05-11-incomplete-artifacts-fix-requirements.md` at repo root.
+A fourth verification run on the second canonical question (NSCLC immunotherapy — the one that exposed the NCBI rate-limit bug) also produced **6/6 artifacts in 6:14**, with **6 PMC 429 retries transparently recovered** during the run.
 
-The "Incomplete run" banner remains as a real safety net — if the agent does ever fail to deliver all six artifacts, the UI will say so honestly rather than pretending the review finished. Treat any future incomplete-run banner as a teaching moment about workflow validation, not as a bug masquerading as success.
+**Plan for ~5–7 minutes wall time per run.** The 800s `maxDuration` headroom absorbs PMC retries without ever pushing close to the function cap.
+
+Full diagnosis records:
+- `docs/brainstorms/2026-05-11-incomplete-artifacts-fix-requirements.md` (Zod query cap)
+- Git commit `d0f0235` ("Retry transient NCBI/OpenAlex failures + clearer error logs")
+- Git tag `demo-ready` (latest fully-verified state)
+
+The "Incomplete run" banner remains as a real safety net — if the agent does ever fail to deliver all six artifacts after the automatic retry has used its one chance, the UI will say so honestly rather than pretending the review finished. Treat any future incomplete-run banner as a teaching moment about workflow validation, not as a bug masquerading as success.
 
 ## Post-Class Follow-Up Assignment
 

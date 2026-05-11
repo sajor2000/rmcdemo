@@ -47,7 +47,7 @@ rmcdemo/
 
 - A clinical question can be turned into a structured literature review in **5–7 minutes**, without humans hand-curating each step.
 - Every PMID and DOI is real — pulled from PubMed's live API, not generated from model memory.
-- Free databases (PubMed + OpenAlex) cover the heavy lifting; paid APIs (OpenRouter for the LLM) keep the cost per run **under $1**.
+- Free databases (PubMed + OpenAlex) cover the heavy lifting; the only paid API (OpenRouter for the LLM) costs **~$1.60 per Sonnet 4.5 run** or ~$0.55 if you switch to Haiku 4.5 for rehearsals. See [research-agent/README.md](./research-agent/README.md#model-selection-cost-vs-quality) for the full cost-vs-quality table.
 - Transient NCBI rate-limits (HTTP 429) recover automatically on the second attempt — instructors can teach through them without intervention.
 - The same agentic pattern that powers this demo also lets a non-engineer modify the code. See [GETTING_STARTED.md](./GETTING_STARTED.md) Step 5.
 

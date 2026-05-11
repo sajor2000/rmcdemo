@@ -37,14 +37,14 @@ The OpenAlex helper deliberately uses the cheap Filter-tier path (`filter=defaul
 
 The default is **`anthropic/claude-sonnet-4.5`** — same price as Sonnet 4 but newer, and currently the strongest mid-tier model for agentic tool use. Override with `OPENROUTER_MODEL` if you want to trade quality for cost:
 
-| Model | Approx. cost / run* | Use case |
-|-------|---------------------|----------|
-| `anthropic/claude-sonnet-4.5` (default) | ~$0.60 | Live classroom demo |
-| `anthropic/claude-haiku-4.5` | ~$0.20 | Rehearsals and dry runs |
-| `openai/gpt-5` | ~$0.29 | Cross-vendor sanity check |
-| `openai/gpt-5-mini` | ~$0.06 | Dev iteration |
+| Model | Approx. cost / run\* | Use case |
+|-------|----------------------|----------|
+| `anthropic/claude-sonnet-4.5` (default) | ~$1.60 | Live classroom demo |
+| `anthropic/claude-haiku-4.5` | ~$0.55 | Rehearsals and dry runs |
+| `openai/gpt-5` | ~$0.75 | Cross-vendor sanity check |
+| `openai/gpt-5-mini` | ~$0.15 | Dev iteration |
 
-\*Rough estimate based on a typical 8-step run (~150k input / ~10k output tokens). Actual cost depends on how chatty the agent is on a given question.
+\*Measured from three end-to-end Sonnet 4.5 runs on 2026-05-11: **~422K input tokens + ~21K output tokens** per canonical run (the bulk is conversation replay across the agentic loop, not the artifact text). Cheaper-model estimates rescale that token shape against each model's published price. Actual cost varies with how chatty the agent is on a given question; expect ±20%.
 
 ## Setup
 
