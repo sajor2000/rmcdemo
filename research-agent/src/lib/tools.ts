@@ -47,7 +47,7 @@ export const pubmedSearch = tool({
       .string()
       .trim()
       .min(3)
-      .max(500)
+      .max(2000)
       .describe("PubMed query with Boolean operators and field tags"),
     maxResults: z
       .number()
@@ -134,7 +134,7 @@ export const openAlexSearch = tool({
       .string()
       .trim()
       .min(3)
-      .max(500)
+      .max(2000)
       .describe("Search query. Supports AND, OR, NOT (uppercase) and quoted phrases."),
     perPage: z
       .number()

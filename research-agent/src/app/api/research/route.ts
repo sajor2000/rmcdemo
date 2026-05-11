@@ -13,7 +13,7 @@ import {
 import { REQUIRED_ARTIFACT_IDS } from "@/lib/types";
 import type { StreamEvent, RequiredArtifactId } from "@/lib/types";
 
-export const maxDuration = 300;
+export const maxDuration = 800;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
@@ -123,7 +123,7 @@ Given a clinical research question, execute these steps:
 
 1. **Search Strategy**: Generate a PICO framework and construct a proper PubMed search query with MeSH terms, Boolean operators, and field tags. Save it via saveArtifact (id: "search_strategy", filename: "search_strategy.md").
 
-2. **Source Search**: In the SAME response turn, emit two tool calls simultaneously — pubmedSearch with your constructed query (filter for systematic reviews / meta-analyses from 2022+) AND openAlexSearch with publicationTypes: ['review'], a minCitations threshold of 10+ for high-impact evidence, and yearFrom: 2022. To surface systematic reviews or meta-analyses in OpenAlex, include those terms in the query string itself (e.g. "topic AND (systematic review OR meta-analysis)") since OpenAlex does not classify them as separate publication types. Reconcile overlapping articles by DOI/PMID.
+2. **Source Search**: In the SAME response turn, emit two tool calls simultaneously — pubmedSearch with your constructed query (filter for systematic reviews / meta-analyses from 2022+) AND openAlexSearch with publicationTypes: ['review'], a minCitations threshold of 10+ for high-impact evidence, and yearFrom: 2022. Keep each query string under 2000 characters total (this is a hard schema cap; if a query is rejected, shorten it by collapsing synonyms and retry once). To surface systematic reviews or meta-analyses in OpenAlex, include those terms in the query string itself (e.g. "topic AND (systematic review OR meta-analysis)") since OpenAlex does not classify them as separate publication types. Reconcile overlapping articles by DOI/PMID.
 
 3. **Metadata Retrieval**: Use pubmedMetadata to get titles, abstracts, DOIs, and PMC IDs for returned PMIDs. When you need to verify multiple citations or find open-access URLs, call openAlexLookupByDoi once with the \`dois\` array (up to 50 DOIs per call) rather than calling it repeatedly with a single \`doi\` — the batch path is one round-trip instead of N, which is materially faster in a live demo.
 
@@ -145,6 +145,7 @@ Given a clinical research question, execute these steps:
 8. **Narrative Synthesis**: Write a 3-paragraph synthesis with DOI citations, a "Clinical Bottom Line" section, and "Limitations & Disclaimers" section. Save via saveArtifact (id: "narrative_synthesis", filename: "narrative_synthesis.md").
 
 ## Rules
+- Emit tool calls directly without preamble. Do NOT write narration like "Let me search...", "Now I'll...", "## Step N" headings, or any explanation of what you are about to do — just call the tool. All explanatory writing belongs inside the artifacts you save via saveArtifact, not in the chat-of-thought between tool calls. This keeps each step's output budget focused on the tool-call payload itself.
 - Every article reference MUST include the real PMID and DOI as a link: [DOI](https://doi.org/...)
 - Never fabricate citations — only use articles returned by the source tools.
 - Format all artifacts as well-structured markdown (or CSV for the CSV table).
@@ -264,6 +265,7 @@ export async function POST(req: Request) {
             saveArtifact,
           },
           maxSteps: 25,
+          maxTokens: 8000,
           experimental_continueSteps: true,
           abortSignal: req.signal,
           // The AI SDK's StepResult type is generic over the tools map and not
@@ -271,7 +273,11 @@ export async function POST(req: Request) {
           // parameter; we narrow tool args/results per-tool below where the
           // shape is known.
           onStepFinish: ({ stepType, text, toolCalls, toolResults, finishReason }) => {
-            console.log(`[step] type=${stepType} finish=${finishReason} tools=${toolCalls?.length || 0} textLen=${text?.length || 0}`);
+            const toolNames = toolCalls?.map((c) => c?.toolName ?? "?").join(",") || "-";
+            console.log(`[step] type=${stepType} finish=${finishReason} tools=${toolCalls?.length || 0}[${toolNames}] textLen=${text?.length || 0}`);
+            if (text && text.length > 0 && text.length < 300) {
+              console.log(`[step-text] ${text.replace(/\s+/g, " ").slice(0, 280)}`);
+            }
             if (!toolCalls || toolCalls.length === 0) return;
 
             for (let i = 0; i < toolCalls.length; i++) {
@@ -397,10 +403,16 @@ export async function POST(req: Request) {
           },
         });
 
-        // Must consume the stream to drive the agent loop
-        for await (const _chunk of result.fullStream) {
+        for await (const chunk of result.fullStream) {
           if (req.signal.aborted || cancelled) break;
-          // onStepFinish handles sending SSE events
+          // Surface tool-validation and stream errors to server logs. These
+          // would otherwise be swallowed (the AI SDK does not forward Zod
+          // failures to the model, so a too-strict schema can silently stall
+          // the agent loop — see 2026-05-11 incomplete-artifacts brainstorm).
+          if (chunk.type === "error") {
+            const err = (chunk as { error?: unknown }).error;
+            console.error("[research-agent] stream-error:", JSON.stringify(err).slice(0, 500));
+          }
         }
 
         if (req.signal.aborted || cancelled) {
