@@ -15,6 +15,42 @@ import type { StreamEvent, RequiredArtifactId } from "@/lib/types";
 
 export const maxDuration = 800;
 
+// Walks Error / DOMException / AI SDK error chains and produces a flat
+// string that includes name + message + nested cause + any toolName /
+// toolArgs the AI SDK attached. Plain JSON.stringify on an Error
+// returns "{}" because the relevant properties are non-enumerable.
+function serializeStreamError(value: unknown, depth = 0): string {
+  if (depth > 4 || value == null) return String(value);
+  if (typeof value === "string") return value;
+  if (value instanceof Error || (value as { name?: string })?.name) {
+    const e = value as Error & {
+      cause?: unknown;
+      toolName?: string;
+      toolArgs?: unknown;
+    };
+    const parts: string[] = [];
+    if (e.name) parts.push(`name=${e.name}`);
+    if (e.message) parts.push(`message=${e.message}`);
+    if (e.toolName) parts.push(`toolName=${e.toolName}`);
+    if (e.toolArgs !== undefined) {
+      try {
+        parts.push(`toolArgs=${JSON.stringify(e.toolArgs).slice(0, 200)}`);
+      } catch {
+        parts.push("toolArgs=[unserializable]");
+      }
+    }
+    if (e.cause) {
+      parts.push(`cause={${serializeStreamError(e.cause, depth + 1)}}`);
+    }
+    return parts.join(" | ");
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 5;
 const MAX_CONCURRENT_PER_CLIENT = 2;
@@ -419,7 +455,14 @@ export async function POST(req: Request) {
           // the agent loop — see 2026-05-11 incomplete-artifacts brainstorm).
           if (chunk.type === "error") {
             const err = (chunk as { error?: unknown }).error;
-            console.error("[research-agent] stream-error:", JSON.stringify(err).slice(0, 500));
+            // JSON.stringify on Error / DOMException returns "{}" because
+            // name/message/stack live on the prototype as non-enumerable
+            // properties. Pull them out by hand so transient NCBI/OpenAlex
+            // failures don't show up as `cause: {}` in the demo-day log.
+            console.error(
+              "[research-agent] stream-error:",
+              serializeStreamError(err).slice(0, 800)
+            );
           }
         }
 

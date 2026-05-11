@@ -1,5 +1,16 @@
 const BASE = "https://api.openalex.org";
-const FETCH_TIMEOUT_MS = 12_000;
+// OpenAlex is generally faster than NCBI but can still hiccup under
+// demo load; matching pubmed.ts timeout + retry policy keeps the two
+// failure profiles symmetric.
+const FETCH_TIMEOUT_MS = 20_000;
+const RETRY_BACKOFF_MS = 2_000;
+
+function isTransient(err: unknown, status?: number): boolean {
+  if (status !== undefined && (status >= 500 || status === 429)) return true;
+  if (err instanceof DOMException && err.name === "TimeoutError") return true;
+  if (err instanceof TypeError) return true;
+  return false;
+}
 // OpenAlex polite-pool requires a real contact email. Set OPENALEX_MAILTO in
 // .env.local to identify your deployment. The fallback is a placeholder; using
 // it works but may eventually be rate-limited by OpenAlex.
@@ -41,19 +52,44 @@ function scrubKey(message: string): string {
 }
 
 async function fetchJson<T>(url: string, service: string): Promise<T> {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`${service} returned ${res.status}: ${scrubKey(text.slice(0, 200))}`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        if (isTransient(undefined, res.status) && attempt === 0) {
+          console.warn(
+            `[${service}] HTTP ${res.status}, retrying after ${RETRY_BACKOFF_MS}ms`
+          );
+          await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+          continue;
+        }
+        throw new Error(
+          `${service} returned ${res.status}: ${scrubKey(text.slice(0, 200))}`
+        );
+      }
+      try {
+        return JSON.parse(text) as T;
+      } catch {
+        throw new Error(`${service} returned invalid JSON`);
+      }
+    } catch (err) {
+      if (isTransient(err) && attempt === 0) {
+        const reason =
+          err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        console.warn(
+          `[${service}] transient error (${reason}), retrying after ${RETRY_BACKOFF_MS}ms`
+        );
+        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+        continue;
+      }
+      throw err;
+    }
   }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`${service} returned invalid JSON`);
-  }
+  throw new Error(`${service} failed after retry`);
 }
 
 function decodeInvertedAbstract(

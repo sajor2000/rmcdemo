@@ -8,15 +8,59 @@ function qs(params: Record<string, string>) {
   return new URLSearchParams({ ...params, tool: TOOL, email: EMAIL }).toString();
 }
 
-const FETCH_TIMEOUT_MS = 12_000;
+// NCBI E-utilities can stall on large XML responses (efetch with 20+
+// PMIDs routinely returns 200-500 KB), especially when we hammer the
+// public polite pool. 20s gives the slow path room to land.
+const FETCH_TIMEOUT_MS = 20_000;
+// Single retry with 2s backoff handles transient 5xx and timeout
+// failures. NCBI rate-limits at 3 req/s anonymous / 10 req/s with key;
+// one extra retry per failed call stays well under that ceiling and
+// recovers most demo-day flakiness without changing the call shape.
+const RETRY_BACKOFF_MS = 2_000;
+
+function isTransient(err: unknown, status?: number): boolean {
+  if (status !== undefined && (status >= 500 || status === 429)) return true;
+  if (err instanceof DOMException && err.name === "TimeoutError") return true;
+  // Native fetch failures (DNS/TCP/TLS) surface as plain TypeError.
+  if (err instanceof TypeError) return true;
+  return false;
+}
 
 async function fetchText(url: string, service: string): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  const text = await res.text();
-  if (!res.ok) {
-    throw new Error(`${service} returned ${res.status}: ${text.slice(0, 160)}`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        if (isTransient(undefined, res.status) && attempt === 0) {
+          console.warn(
+            `[${service}] HTTP ${res.status}, retrying after ${RETRY_BACKOFF_MS}ms`
+          );
+          await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+          continue;
+        }
+        throw new Error(
+          `${service} returned ${res.status}: ${text.slice(0, 160)}`
+        );
+      }
+      return text;
+    } catch (err) {
+      if (isTransient(err) && attempt === 0) {
+        const reason =
+          err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        console.warn(
+          `[${service}] transient error (${reason}), retrying after ${RETRY_BACKOFF_MS}ms`
+        );
+        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
+        continue;
+      }
+      throw err;
+    }
   }
-  return text;
+  // Unreachable: the loop either returns or throws.
+  throw new Error(`${service} failed after retry`);
 }
 
 async function fetchJson<T>(url: string, service: string): Promise<T> {
