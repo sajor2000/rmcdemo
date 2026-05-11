@@ -1,0 +1,16 @@
+Author,Year,PMID,DOI,Design,N,Intervention,Comparator,Primary Outcome,Effect Size,95% CI Lower,95% CI Upper,Significant,GRADE
+Michaelsen MK,2025,41263069,10.1161/STROKEAHA.125.053075,SR + MA (preclinical + clinical),35 studies,GLP-1 RA (9 agents),Placebo/vehicle,Infarct volume / functional outcome,NS in clinical trials,,,No,Low
+Hasebe M,2026,41565576,10.1111/dom.70458,Updated MA of 9 RCTs,74703,GLP-1 RA,Placebo,3-point MACE (overall),0.86,0.81,0.91,Yes (White),Moderate
+Hasebe M,2026,41565576,10.1111/dom.70458,Updated MA of 9 RCTs,74703,GLP-1 RA,Placebo,3-point MACE (Asian),0.73,0.63,0.85,Yes,Moderate
+Hasebe M,2026,41565576,10.1111/dom.70458,Updated MA of 9 RCTs,74703,GLP-1 RA,Placebo,3-point MACE (Black/AA),0.88,0.67,1.15,No,Moderate
+Stefanou MI,2026,41619622,10.1016/j.jdiacomp.2026.109271,SR + MA of 7 RCTs,61610,GLP-1 RA,Placebo,Incident vascular dementia,0.50,0.19,1.32,No,Very low
+Shokravi A,2026,41761267,10.1186/s12933-026-03113-3,SR + Network MA of 11 RCTs,11 trials,Tirzepatide,Placebo,MACE,0.79,0.69,0.91,Yes,Moderate
+Shokravi A,2026,41761267,10.1186/s12933-026-03113-3,SR + Network MA of 11 RCTs,11 trials,Tirzepatide,Placebo,Non-fatal stroke,0.79,0.64,0.97,Yes,Moderate
+Yeo D,2025,41255131,10.1111/dom.70298,Umbrella review (432 RCTs),17 meta-analyses,Liraglutide,Placebo/SOC,MACE,0.86,0.80,0.91,Yes,Low
+Yeo D,2025,41255131,10.1111/dom.70298,Umbrella review (432 RCTs),17 meta-analyses,Dulaglutide,Placebo/SOC,MACE + stroke,0.78,0.68,0.90,Yes,Low
+Yeo D,2025,41255131,10.1111/dom.70298,Umbrella review (432 RCTs),17 meta-analyses,Albiglutide,Placebo/SOC,MACE,0.65,0.47,0.89,Yes,Low
+Ahmed AAO,2025,41454299,10.1186/s12872-025-05455-4,SR + MA + indirect comparison,99261,GLP-1 RA,Placebo,MACE,0.82,0.78,0.87,Yes,Moderate
+Ahmed AAO,2025,41454299,10.1186/s12872-025-05455-4,SR + MA + indirect comparison,99261,SGLT2i,Placebo,MACE,0.89,0.84,0.95,Yes,Moderate
+Tan S,2025,41472878,10.3389/fcvm.2025.1731127,MA of 4 RCTs + GRADE,19663,Semaglutide (oral + SC),Placebo,MACE,0.83,0.76,0.91,Yes,High
+Tan S,2025,41472878,10.3389/fcvm.2025.1731127,MA of 4 RCTs + GRADE,19663,Semaglutide (oral + SC),Placebo,Non-fatal stroke,NS,,,No,Moderate
+Cordova F,2025,41506923,10.1016/j.soard.2025.11.024,SR + MA of 5 cohort studies,39569,Bariatric surgery,GLP-1 RA,MACE,0.65,0.51,0.83,Yes,Low
