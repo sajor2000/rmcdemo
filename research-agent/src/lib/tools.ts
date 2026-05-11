@@ -103,13 +103,13 @@ export const pubmedMetadata = tool({
 
 export const pubmedFulltext = tool({
   description:
-    "Fetch full-text content from PubMed Central for open-access articles. Takes PMC IDs (e.g. PMC12345). Returns first ~8000 chars of body text. Internally fetches all requested PMC IDs in parallel.",
+    "Fetch full-text content from PubMed Central for open-access articles. Takes up to 25 PMC IDs (e.g. PMC12345) per call. Returns first ~8000 chars of body text per article. Internally fetches all requested PMC IDs in parallel.",
   parameters: z.object({
     pmcIds: z
       .array(z.string().regex(/^PMC\d+$/i))
       .min(1)
-      .max(5)
-      .describe("PMC IDs to fetch full text for"),
+      .max(25)
+      .describe("PMC IDs to fetch full text for (max 25 per call)"),
   }),
   execute: async ({ pmcIds }) => {
     const settled = await Promise.allSettled(pmcIds.map((id) => fetchFullText(id)));

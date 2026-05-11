@@ -335,20 +335,20 @@ export default function Home() {
             {config?.model && (
               <span
                 title={`OpenRouter model: ${config.model}`}
-                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border bg-gray-50 text-gray-700 border-gray-200"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />
                 {config.model.split("/").pop() || config.model}
               </span>
             )}
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
               Sources
             </span>
             {sourceIndicators.map((indicator) => (
               <span
                 key={indicator.key}
                 title={indicator.hint}
-                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border transition-colors ${
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
                   indicator.enabled
                     ? indicator.tone === "default"
                       ? "bg-primary-50 text-primary-700 border-primary-200"
@@ -365,7 +365,7 @@ export default function Home() {
               </span>
             ))}
             {config && !config.openrouter && (
-              <span className="inline-flex items-center text-[11px] font-medium px-2 py-1 rounded-full border bg-red-50 text-red-700 border-red-200">
+              <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border bg-red-50 text-red-700 border-red-200">
                 OpenRouter key missing
               </span>
             )}
@@ -394,20 +394,21 @@ export default function Home() {
           />
 
           <div className="mt-4 grid gap-3 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3">
-            <label className="flex items-start gap-3 text-xs text-blue-900">
+            <label className="flex items-start gap-3 text-sm text-gray-800">
               <input
                 type="checkbox"
                 checked={privacyConfirmed}
                 onChange={(e) => setPrivacyConfirmed(e.target.checked)}
                 disabled={running}
-                className="mt-0.5 h-4 w-4 rounded border-blue-300 text-primary-600 focus:ring-primary-500"
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
               />
               <span>
+                <span className="font-semibold text-blue-900">Required:</span>{" "}
                 I confirm this demo question contains no PHI, patient identifiers,
                 MRNs, dates of birth, phone numbers, or emails.
               </span>
             </label>
-            <label className="flex items-start gap-3 text-xs text-gray-600">
+            <label className="flex items-start gap-3 text-sm text-gray-700">
               <input
                 type="checkbox"
                 checked={allowWebSearch}
@@ -422,8 +423,11 @@ export default function Home() {
             </label>
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
-            <div className="flex gap-2 flex-wrap">
+          <div className="mt-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+              Try an example
+            </p>
+            <div className="flex flex-col gap-2">
               {EXAMPLES.map((ex, i) => (
                 <button
                   key={i}
@@ -432,30 +436,30 @@ export default function Home() {
                     startResearch(ex);
                   }}
                   disabled={!privacyConfirmed || running}
-                  className="text-xs px-3 py-1.5 rounded-full border border-gray-200 text-gray-500 hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 transition-colors disabled:opacity-50"
+                  className="text-left text-sm leading-snug px-3 py-2 rounded-lg border border-gray-200 text-gray-700 hover:border-primary-300 hover:text-primary-700 hover:bg-primary-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {ex.length > 60 ? ex.slice(0, 57) + "..." : ex}
+                  {ex}
                 </button>
               ))}
             </div>
+          </div>
 
-            <div className="flex gap-2 shrink-0 ml-4">
-              {running && (
-                <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-              )}
+          <div className="mt-5 flex items-center justify-end gap-2">
+            {running && (
               <button
-                onClick={() => startResearch()}
-                disabled={!question.trim() || !privacyConfirmed || running}
-                className="px-6 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={handleCancel}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
               >
-                {running ? "Researching..." : "Start Research"}
+                Cancel
               </button>
-            </div>
+            )}
+            <button
+              onClick={() => startResearch()}
+              disabled={!question.trim() || !privacyConfirmed || running}
+              className="px-6 py-2.5 rounded-lg bg-primary-600 text-white text-sm font-semibold shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {running ? "Researching..." : "Start Research"}
+            </button>
           </div>
         </div>
       </section>
