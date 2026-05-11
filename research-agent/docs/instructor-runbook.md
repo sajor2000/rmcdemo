@@ -41,6 +41,70 @@ The model in use shows up as a gray pill next to the **Sources** strip in the UI
 - Confirm the workflow reaches **8/8 steps · 6/6 artifacts** before relying on the live run as the main demonstration.
 - Confirm at least one PubMed and one OpenAlex source badge appears in the workflow during the run.
 
+## Local-Only Demo Setup (chosen deployment path)
+
+For this 1-hour classroom session, the agent runs on the instructor's laptop, not on a hosted server. The instructor drives the demo and projects the laptop screen. This is the simplest, most reliable path — zero hosting cost, zero proxy-timeout risk, and the OpenRouter key never leaves the instructor's machine.
+
+### Night before class
+
+1. Pull the latest `main` branch: `git pull origin main`. Confirm the most recent commit message references the 1/6 artifacts fix.
+2. Reinstall dependencies cleanly: `cd research-agent && npm ci`.
+3. Confirm `research-agent/.env.local` contains a working `OPENROUTER_API_KEY`. (Optional: also set `OPENALEX_MAILTO` to your school email for the OpenAlex polite pool.)
+4. Run `npm run build` once. It must end with "Generating static pages (5/5)" and no type errors.
+5. Run the canonical question once via the browser at `http://localhost:3000` to confirm 6/6 artifacts. This is also the final pre-flight (~$1.59 in OpenRouter credits).
+6. Download all six artifacts from that pre-flight run and save them locally as a backup artifact set, per the Backup Plan section below.
+
+### 15 minutes before class
+
+1. Close other heavy apps (Slack, video calls, large IDE projects in other windows) to free RAM.
+2. Plug the laptop into power. Do NOT rely on battery for a 5-minute streaming run.
+3. Prevent the system from sleeping during the class. On macOS, open a terminal and run:
+
+   ```
+   caffeinate -d
+   ```
+
+   Leave that terminal open until class ends. On Windows, use the Power & Sleep settings to set "Plugged in, turn off after" to "Never" for the session.
+4. Confirm wifi is stable on the room's network. The agent makes outbound calls to PubMed, OpenAlex, and OpenRouter — any of those failing mid-run will produce an "Incomplete" or "Network error" banner.
+5. Start the dev server from the `research-agent/` directory:
+
+   ```
+   npm run dev
+   ```
+
+   Wait for the "Ready in" line, then open `http://localhost:3000` in your browser.
+6. Hard-refresh the browser tab (Cmd+Shift+R on macOS, Ctrl+Shift+R on Windows) to drop any cached state.
+7. Open a second terminal window with `tail -f` on the dev server output, sized so it is visible but not in the projection. The `[step]` lines provide a reassuring real-time backchannel if anything seems wrong on the projector.
+
+### Optional: sharing a live URL with students
+
+If students should be able to hit the same instance from their own laptops, add a free Cloudflare Tunnel in front of the local server.
+
+1. Install once: `brew install cloudflared` on macOS, or download the binary from `https://github.com/cloudflare/cloudflared/releases`.
+2. While the dev server is running, in a third terminal: `cloudflared tunnel --url http://localhost:3000`.
+3. Cloudflared prints a `https://<random>.trycloudflare.com` URL. Share that with the class. The URL is valid as long as the tunnel process runs — when class ends, Ctrl+C the tunnel and the URL goes dead.
+
+Notes on this path:
+- The tunnel URL is unguessable but technically public. Use it for the class hour only.
+- All traffic still terminates on your laptop, so all the same OpenRouter cost and wifi-dependency caveats apply.
+- The trycloudflare.com domain has no idle timeout that matters for our SSE stream — events arrive at 30-60s intervals during a run, well inside any proxy limit.
+
+### Day-of troubleshooting reference
+
+| Symptom | Most likely cause | Quick fix |
+|---|---|---|
+| "Network error" banner appears in seconds | Dev server crashed or was hot-reloaded mid-request | Check the server terminal. Restart with `npm run dev` if needed, hard-refresh browser. |
+| "Incomplete run · N/6 artifacts" | Outbound API hiccup mid-run (PubMed, OpenAlex, or OpenRouter rate-limit) | Wait 15 seconds, retry the same query. If reproducible across two retries, fall back to the downloaded backup artifact set. |
+| Browser shows the page but submit button does nothing | Server not running on :3000, or browser is on a stale URL | Confirm `npm run dev` is still up in the terminal. Refresh browser. |
+| Stepper looks frozen for >90 seconds with no new event | Model is mid-synthesis (especially article_summaries or narrative_synthesis steps); these are the heaviest writes | Be patient — these steps often write 3000-5000 tokens. The terminal's `[step]` line will confirm activity. |
+| Browser says "Took too long to respond" or similar | Laptop went to sleep, lost network, or `caffeinate -d` was not started | Wake laptop, confirm wifi, restart dev server, fall back to backup artifacts. |
+
+### After class
+
+1. Ctrl+C the dev server, the `caffeinate -d` terminal, and any Cloudflare Tunnel.
+2. The `.env.local` file with the OpenRouter key stays on the laptop and is gitignored — it never reaches GitHub.
+3. If running cheaper-model evaluation post-class is on the roadmap, see `docs/brainstorms/2026-05-11-post-demo-cost-optimization-plan.md`.
+
 ## 60-Minute Agenda
 
 ### 0-5 min: Frame The Problem
@@ -145,9 +209,19 @@ If the student cancels mid-run:
 - The app shows a **Run cancelled** banner.
 - Whatever artifacts were produced before cancellation remain downloadable.
 
-## Observed Dry-Run Note
+## Validation Status (last verified 2026-05-11)
 
-During prep, one live run generated only the Search Strategy artifact and then correctly surfaced an **Incomplete run · 1/6 artifacts** banner. Treat this as a feature of the teaching story: the UI has validation and does not falsely claim success. For the actual class, have a complete artifact set ready before starting.
+The "Incomplete run · 1/6 artifacts" failure observed in early prep was diagnosed and fixed on 2026-05-11. Root cause was a 500-character Zod cap on the PubMed and OpenAlex query parameters — biomedical queries with MeSH terms and Boolean operators routinely exceed 500 chars, and the AI SDK was silently rejecting the over-long tool argument without telling the model. Cap raised to 2000 chars. Three consecutive end-to-end validation runs of the canonical question each produced 6/6 artifacts:
+
+| Run | Artifacts | Duration | Terminal event |
+|---|---|---|---|
+| 1 | 6/6 | 5:15 | done |
+| 2 | 6/6 | 5:44 | done |
+| 3 | 6/6 | 5:18 | done |
+
+Plan for ~5:30 average wall time per run. Full diagnosis: `docs/brainstorms/2026-05-11-incomplete-artifacts-fix-requirements.md` at repo root.
+
+The "Incomplete run" banner remains as a real safety net — if the agent does ever fail to deliver all six artifacts, the UI will say so honestly rather than pretending the review finished. Treat any future incomplete-run banner as a teaching moment about workflow validation, not as a bug masquerading as success.
 
 ## Post-Class Follow-Up Assignment
 
