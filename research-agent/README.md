@@ -15,10 +15,10 @@ A Next.js classroom demo that turns a clinical research question into a structur
 | Layer       | Tool                                       | Status                                          |
 |-------------|--------------------------------------------|-------------------------------------------------|
 | LLM gateway | OpenRouter (default: Claude Sonnet 4.5)    | **Required** API key, model is overridable      |
-| Biomedical  | PubMed / PMC E-utilities                   | Free, no key                                    |
+| Biomedical  | PubMed / PMC E-utilities                   | Free, no key. Built-in one-retry-with-backoff handles transient 429/5xx. |
 | Scholarly   | OpenAlex `/works` API                      | Free tier covers all classroom use (key optional, recommended) |
 | Web backup  | Tavily Search                              | Optional, only when UI toggle is on             |
-| Hosting     | Next.js 15 app router on Vercel            | Hobby for testing, Pro for full 300s `maxDuration` |
+| Hosting     | Next.js 15 app router on Vercel            | Hobby (60s function cap) is **not** enough; Pro/Fluid Compute supports the 800s `maxDuration` we use. Local-only is the recommended demo path. |
 
 ### OpenAlex free-tier budget
 
@@ -87,7 +87,7 @@ Before starting, tick the no-PHI confirmation. Leave supplementary web search of
 The left-side workflow progresses from top to bottom. Each step shows a source badge (PubMed / PMC / OpenAlex / Tavily) once the agent uses that tool:
 
 1. Search Strategy
-2. Source Search (PubMed first, then OpenAlex cross-check)
+2. Source Search (PubMed + OpenAlex called in parallel)
 3. Article Metadata
 4. Screening
 5. Full-Text Retrieval (PMC)
@@ -95,25 +95,39 @@ The left-side workflow progresses from top to bottom. Each step shows a source b
 7. Evidence Table (markdown + CSV)
 8. Narrative Synthesis
 
-Completed steps show green checkmarks. The bottom banner says:
+The 8 visible steps produce 6 downloadable artifacts (search strategy, screening log, article summaries, evidence table markdown, evidence table CSV, narrative synthesis). Completed steps show green checkmarks. The bottom banner says:
 
-- **Run complete** when all 6 required artifacts are produced.
-- **Incomplete run** when the agent stops early — partial artifacts can still be downloaded.
+- **Run complete · 6/6 artifacts** when the agent finishes the full workflow.
+- **Incomplete run · N/6 artifacts** when the agent stops early — partial artifacts can still be downloaded.
 - **Run cancelled** when the user aborts.
 
-## Deploy to Vercel
+### Reliability behavior
 
-The app is configured for Vercel out of the box:
+PubMed / PMC / OpenAlex calls are wrapped with a 20-second timeout and one automatic retry-with-2s-backoff for transient failures (HTTP 429, 5xx, and TimeoutError). When NCBI rate-limits us mid-run — common during back-to-back demo rehearsals — you will see lines like the following in the server log:
 
-- `vercel.json` pins the research route to a 300-second function timeout.
+```text
+[PMC full text] HTTP 429, retrying after 2000ms
+```
+
+These are informational, not errors. The run keeps going and recovers transparently. A real failure shows up as a `stream-error` log line with a non-empty `cause=...` chain.
+
+A typical canonical run completes in **5–7 minutes**. The 800s `maxDuration` headroom is intentional: it absorbs PMC rate-limit retries without ever pushing the run past the function cap.
+
+## Deploy to Vercel (optional)
+
+The recommended path for the Rush demo is **local-only** — see [`docs/instructor-runbook.md`](./docs/instructor-runbook.md) — because the entire workflow runs against free APIs from the instructor's laptop and the cold-start / function-cap risks of serverless aren't worth the convenience for a single one-hour class.
+
+If you do deploy to Vercel:
+
+- `vercel.json` pins the research route to an 800-second function timeout.
+- The `/api/research` route declares `export const maxDuration = 800` to match.
 - `next.config.ts` pins `outputFileTracingRoot` so multiple lockfiles in parent directories do not confuse the build.
-- The `/api/research` route already declares `export const maxDuration = 300`.
 
 Setup steps:
 
 1. Push the `research-agent` folder to a new Git repo or `vercel link` from this directory.
 2. In Vercel project settings, set the env vars from `.env.local.example`. `OPENROUTER_API_KEY` is the only required one.
-3. The 300-second timeout requires a Vercel Pro plan. On Hobby, drop the `maxDuration` in both `vercel.json` and `src/app/api/research/route.ts` to 60.
+3. The 800-second timeout requires Vercel Pro with Fluid Compute enabled. Hobby caps at 60s, which is **not enough** for a real research run. On Hobby, runs will be killed mid-workflow.
 4. Deploy. Sanity-check the deployed app by sending the canonical question with web search disabled.
 
 ## Classroom Cautions
@@ -140,8 +154,19 @@ Then run the app locally and confirm:
 - PubMed and OpenAlex source badges appear on the relevant steps.
 - The search strategy and evidence table are understandable.
 - At least 2-3 PMID/DOI citations open correctly in a new tab.
-- The total runtime fits your lesson plan.
+- The total runtime fits your lesson plan (typical: 5–7 minutes).
 - You have screenshots or cached outputs ready in case live APIs are slow.
+
+### Demo-ready snapshot
+
+The `demo-ready` git tag points at the last commit verified end-to-end (three back-to-back canonical runs, 6/6 artifacts each, NCBI 429 retries handled transparently). If anything breaks between now and class:
+
+```bash
+git checkout demo-ready          # look around safely
+git reset --hard demo-ready      # only if you're sure
+```
+
+Backup artifacts from the verified run are also kept on the instructor laptop at `~/Desktop/demo-backup-artifacts/` — open these directly if a live run ever fails during class.
 
 ## Key Files
 

@@ -10,9 +10,13 @@ Built for the Rush Medical College board meeting demo (May 2026).
 
 > **New to AI-assisted coding?** Read **[GETTING_STARTED.md](./GETTING_STARTED.md)** — a step-by-step walkthrough that assumes zero prior experience with agents, IDEs, or APIs.
 
-> **Want to run the app?** Jump to **[research-agent/README.md](./research-agent/README.md)** for the technical setup, model cost tables, and Vercel deployment notes.
+> **Want to run the app?** Jump to **[research-agent/README.md](./research-agent/README.md)** for the technical setup, model cost tables, and reliability notes.
 
-> **Want to see what the agent produces?** The six `.md` and `.csv` files in this folder are real example outputs from a previous run — start with [`narrative_synthesis.md`](./narrative_synthesis.md).
+> **Teaching a class with this?** Read **[research-agent/docs/instructor-runbook.md](./research-agent/docs/instructor-runbook.md)** — local-only setup, day-of checklist, and a troubleshooting table for common failure modes.
+
+> **Want to see what the agent produces?** The six `.md` and `.csv` files in this folder are real example outputs from an earlier prototype run — start with [`narrative_synthesis.md`](./narrative_synthesis.md).
+
+> **Want a known-good snapshot to roll back to?** The git tag `demo-ready` points at the last commit verified with three consecutive 6/6 canonical runs, including transient NCBI rate-limit recovery: `git reset --hard demo-ready`.
 
 ---
 
@@ -41,9 +45,10 @@ rmcdemo/
 
 ## What this demo proves
 
-- A clinical question can be turned into a structured literature review in a few minutes, without humans hand-curating each step.
+- A clinical question can be turned into a structured literature review in **5–7 minutes**, without humans hand-curating each step.
 - Every PMID and DOI is real — pulled from PubMed's live API, not generated from model memory.
-- Free databases (PubMed + OpenAlex) cover the heavy lifting; paid APIs (OpenRouter for the LLM) keep the cost per run under a dollar.
+- Free databases (PubMed + OpenAlex) cover the heavy lifting; paid APIs (OpenRouter for the LLM) keep the cost per run **under $1**.
+- Transient NCBI rate-limits (HTTP 429) recover automatically on the second attempt — instructors can teach through them without intervention.
 - The same agentic pattern that powers this demo also lets a non-engineer modify the code. See [GETTING_STARTED.md](./GETTING_STARTED.md) Step 5.
 
 ---
